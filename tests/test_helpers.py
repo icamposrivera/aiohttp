@@ -25,7 +25,10 @@ IS_PYPY = platform.python_implementation() == "PyPy"
     [
         ("", helpers.MimeType("", "", "", MultiDict())),
         ("*", helpers.MimeType("*", "*", "", MultiDict())),
-        ("application/json", helpers.MimeType("application", "json", "", MultiDict())),
+        (
+            "application/json",
+            helpers.MimeType("application", "json", "", MultiDict()),
+        ),
         (
             "application/json;  charset=utf-8",
             helpers.MimeType(
@@ -147,15 +150,21 @@ def test_basic_auth_decode_invalid_credentials() -> None:
         (":", helpers.BasicAuth(login="", password="", encoding="latin1")),
         (
             "username:",
-            helpers.BasicAuth(login="username", password="", encoding="latin1"),
+            helpers.BasicAuth(
+                login="username", password="", encoding="latin1"
+            ),
         ),
         (
             ":password",
-            helpers.BasicAuth(login="", password="password", encoding="latin1"),
+            helpers.BasicAuth(
+                login="", password="password", encoding="latin1"
+            ),
         ),
         (
             "username:password",
-            helpers.BasicAuth(login="username", password="password", encoding="latin1"),
+            helpers.BasicAuth(
+                login="username", password="password", encoding="latin1"
+            ),
         ),
     ),
 )
@@ -472,32 +481,28 @@ def test_set_content_disposition_bad_param() -> None:
 # --------------------- proxies_from_env ------------------------------
 
 
-def test_proxies_from_env_http(mocker) -> None:
+@pytest.mark.parametrize("protocol", ["http", "https", "ws", "wss"])
+def test_proxies_from_env(monkeypatch, protocol) -> None:
     url = URL("http://aiohttp.io/path")
-    mocker.patch.dict(os.environ, {"http_proxy": str(url)})
+    monkeypatch.setenv(protocol + "_proxy", str(url))
     ret = helpers.proxies_from_env()
-    assert ret.keys() == {"http"}
-    assert ret["http"].proxy == url
-    assert ret["http"].proxy_auth is None
+    assert ret.keys() == {protocol}
+    assert ret[protocol].proxy == url
+    assert ret[protocol].proxy_auth is None
 
 
-def test_proxies_from_env_http_proxy_for_https_proto(mocker) -> None:
-    url = URL("http://aiohttp.io/path")
-    mocker.patch.dict(os.environ, {"https_proxy": str(url)})
-    ret = helpers.proxies_from_env()
-    assert ret.keys() == {"https"}
-    assert ret["https"].proxy == url
-    assert ret["https"].proxy_auth is None
-
-
-def test_proxies_from_env_https_proxy_skipped(mocker) -> None:
-    url = URL("https://aiohttp.io/path")
-    mocker.patch.dict(os.environ, {"https_proxy": str(url)})
-    log = mocker.patch("aiohttp.log.client_logger.warning")
+@pytest.mark.parametrize("protocol", ["https", "wss"])
+def test_proxies_from_env_skipped(monkeypatch, caplog, protocol) -> None:
+    url = URL(protocol + "://aiohttp.io/path")
+    monkeypatch.setenv(protocol + "_proxy", str(url))
     assert helpers.proxies_from_env() == {}
-    log.assert_called_with(
-        "HTTPS proxies %s are not supported, ignoring", URL("https://aiohttp.io/path")
+    assert len(caplog.records) == 1
+    log_message = (
+        "{proto!s} proxies {url!s} are not supported, ignoring".format(
+            proto=protocol.upper(), url=url
+        )
     )
+    assert caplog.record_tuples == [("aiohttp.client", 30, log_message)]
 
 
 def test_proxies_from_env_http_with_auth(mocker) -> None:

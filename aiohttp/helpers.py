@@ -90,7 +90,8 @@ NO_EXTENSIONS = bool(os.environ.get("AIOHTTP_NO_EXTENSIONS"))  # type: bool
 # N.B. sys.flags.dev_mode is available on Python 3.7+, use getattr
 # for compatibility with older versions
 DEBUG = getattr(sys.flags, "dev_mode", False) or (
-    not sys.flags.ignore_environment and bool(os.environ.get("PYTHONASYNCIODEBUG"))
+    not sys.flags.ignore_environment
+    and bool(os.environ.get("PYTHONASYNCIODEBUG"))
 )  # type: bool
 
 
@@ -140,7 +141,9 @@ class BasicAuth(namedtuple("BasicAuth", ["login", "password", "encoding"])):
             raise ValueError("None is not allowed as password value")
 
         if ":" in login:
-            raise ValueError('A ":" is not allowed in login (RFC 1945#section-11.1)')
+            raise ValueError(
+                'A ":" is not allowed in login (RFC 1945#section-11.1)'
+            )
 
         return super().__new__(cls, login, password, encoding)
 
@@ -174,7 +177,9 @@ class BasicAuth(namedtuple("BasicAuth", ["login", "password", "encoding"])):
         return cls(username, password, encoding=encoding)
 
     @classmethod
-    def from_url(cls, url: URL, *, encoding: str = "latin1") -> Optional["BasicAuth"]:
+    def from_url(
+        cls, url: URL, *, encoding: str = "latin1"
+    ) -> Optional["BasicAuth"]:
         """Create BasicAuth from url."""
         if not isinstance(url, URL):
             raise TypeError("url should be yarl.URL instance")
@@ -243,14 +248,22 @@ class ProxyInfo:
 
 
 def proxies_from_env() -> Dict[str, ProxyInfo]:
-    proxy_urls = {k: URL(v) for k, v in getproxies().items() if k in ("http", "https")}
+    proxy_urls = {
+        k: URL(v)
+        for k, v in getproxies().items()
+        if k in ("http", "https", "ws", "wss")
+    }
     netrc_obj = netrc_from_env()
     stripped = {k: strip_auth_from_url(v) for k, v in proxy_urls.items()}
     ret = {}
     for proto, val in stripped.items():
         proxy, auth = val
-        if proxy.scheme == "https":
-            client_logger.warning("HTTPS proxies %s are not supported, ignoring", proxy)
+        if proxy.scheme in ("https", "wss"):
+            client_logger.warning(
+                "%s proxies %s are not supported, ignoring",
+                proxy.scheme.upper(),
+                proxy,
+            )
             continue
         if netrc_obj and auth is None:
             auth_from_netrc = None
@@ -289,7 +302,8 @@ def get_running_loop(
         )
         if loop.get_debug():
             internal_logger.warning(
-                "The object should be created within an async function", stack_info=True
+                "The object should be created within an async function",
+                stack_info=True,
             )
     return loop
 
@@ -327,7 +341,10 @@ def parse_mimetype(mimetype: str) -> MimeType:
     """
     if not mimetype:
         return MimeType(
-            type="", subtype="", suffix="", parameters=MultiDictProxy(MultiDict())
+            type="",
+            subtype="",
+            suffix="",
+            parameters=MultiDictProxy(MultiDict()),
         )
 
     parts = mimetype.split(";")
@@ -350,11 +367,16 @@ def parse_mimetype(mimetype: str) -> MimeType:
         else (fulltype, "")
     )
     stype, suffix = (
-        cast(Tuple[str, str], stype.split("+", 1)) if "+" in stype else (stype, "")
+        cast(Tuple[str, str], stype.split("+", 1))
+        if "+" in stype
+        else (stype, "")
     )
 
     return MimeType(
-        type=mtype, subtype=stype, suffix=suffix, parameters=MultiDictProxy(params)
+        type=mtype,
+        subtype=stype,
+        suffix=suffix,
+        parameters=MultiDictProxy(params),
     )
 
 
@@ -376,7 +398,9 @@ def content_disposition_header(
     params is a dict with disposition params.
     """
     if not disptype or not (TOKEN > set(disptype)):
-        raise ValueError("bad content disposition type {!r}" "".format(disptype))
+        raise ValueError(
+            "bad content disposition type {!r}" "".format(disptype)
+        )
 
     value = disptype
     if params:
@@ -384,7 +408,8 @@ def content_disposition_header(
         for key, val in params.items():
             if not key or not (TOKEN > set(key)):
                 raise ValueError(
-                    "bad content disposition parameter" " {!r}={!r}".format(key, val)
+                    "bad content disposition parameter"
+                    " {!r}={!r}".format(key, val)
                 )
             qval = quote(val, "") if quote_fields else val
             lparams.append((key, '"%s"' % qval))
@@ -461,7 +486,9 @@ _ipv6_regexb = re.compile(_ipv6_pattern.encode("ascii"), flags=re.IGNORECASE)
 
 
 def _is_ip_address(
-    regex: Pattern[str], regexb: Pattern[bytes], host: Optional[Union[str, bytes]]
+    regex: Pattern[str],
+    regexb: Pattern[bytes],
+    host: Optional[Union[str, bytes]],
 ) -> bool:
     if host is None:
         return False
@@ -470,14 +497,18 @@ def _is_ip_address(
     elif isinstance(host, (bytes, bytearray, memoryview)):
         return bool(regexb.match(host))
     else:
-        raise TypeError("{} [{}] is not a str or bytes".format(host, type(host)))
+        raise TypeError(
+            "{} [{}] is not a str or bytes".format(host, type(host))
+        )
 
 
 is_ipv4_address = functools.partial(_is_ip_address, _ipv4_regex, _ipv4_regexb)
 is_ipv6_address = functools.partial(_is_ip_address, _ipv6_regex, _ipv6_regexb)
 
 
-def is_ip_address(host: Optional[Union[str, bytes, bytearray, memoryview]]) -> bool:
+def is_ip_address(
+    host: Optional[Union[str, bytes, bytearray, memoryview]]
+) -> bool:
     return is_ipv4_address(host) or is_ipv6_address(host)
 
 
@@ -683,7 +714,9 @@ class CeilTimeout(async_timeout.timeout):
 
 class HeadersMixin:
 
-    ATTRS = frozenset(["_content_type", "_content_dict", "_stored_content_type"])
+    ATTRS = frozenset(
+        ["_content_type", "_content_dict", "_stored_content_type"]
+    )
 
     _content_type = None  # type: Optional[str]
     _content_dict = None  # type: Optional[Dict[str, str]]
